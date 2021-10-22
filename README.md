@@ -3,10 +3,22 @@
 Aqui será abordados como atender aos requisitos informados, sem a necessidade de ter código fonte.
 Mas poderia ser desenvolvido em qualquer linguagem de backend como *Java*, *Node*, *PHP*, *Python*, etc.
 Lembrando que aqui seria uma forma de resolver os problemas, não necessariamente a mais certa.
-## Sumário
 
+## 1. Sumário
+- [Avaliação Financeira](#avaliação-financeira)
+  - [1. Sumário](#1-sumário)
+  - [2. Requisitos](#2-requisitos)
+  - [3. Resolução](#3-resolução)
+    - [3.1. Cenário Base A](#31-cenário-base-a)
+    - [3.2. Cenário Base B](#32-cenário-base-b)
+    - [3.3. Cenário Base C](#33-cenário-base-c)
+      - [3.3.1. WebHook consulta-realizada-cpf](#331-webhook-consulta-realizada-cpf)
+      - [3.3.2. WebHook movimentacao-financeira-realizada](#332-webhook-movimentacao-financeira-realizada)
+      - [3.3.3. Evento Realiza Sumário Financeiro](#333-evento-realiza-sumário-financeiro)
+      - [3.3.4. Micro-serviço busca-sumario-financeiro](#334-micro-serviço-busca-sumario-financeiro)
+  - [4. Considerações](#4-considerações)
 
-## Requisitos
+## 2. Requisitos
 Este teste foi baseado nos seguintes requisitos:
 
  **1. Armazenamento**
@@ -41,9 +53,9 @@ O último serviço, acessa a Base C e tem como principal funcionalidade, rastrea
 - Movimentação financeira nesse CPF.
 - Dados relacionados a última compra com cartao de crédito vinculado ao CPF
 
-## Resolução
+## 3. Resolução
 
-### Cenário Base A
+### 3.1. Cenário Base A
 Para este cenário seria o mais simples, criaria um micro-serviço para fazer a leitura da base, considerando aqui uma base Relacional como *Oracle*, *SqlServer*, etc., ou um banco não relacional como *MongoDB* ao qual já estaria sumarizada com os dados que fossem necessários ser retornados.
 Porém antes do retorno, lançaria um evento assíncrono para poder sumarizar os dados do cenário 3 em um banco **Redis**, conforme diagrama abaixo.
 
@@ -73,7 +85,7 @@ Exemplo de retorno:
 }
 ```
 
-### Cenário Base B
+### 3.2. Cenário Base B
 Para este cenário primeiramente construiria uma rotina agendada (**job**) para fazer a sumarização dos dados relevantes a pontuação de crédito e inserir em uma base **MongoDb**.
 ![](img/Cenario2Sumarizacao.png)
 Obs.: *Utilizaria esta estratégia visto que são dados que não tendem a ter modificações a todo momento.*
@@ -111,25 +123,25 @@ Exemplo de retorno:
 }
 ```
 
-### Cenário Base C
+### 3.3. Cenário Base C
 
 Para este cenário estou considerando que os dados financeiros serão trafegados por *WebHook's*, considerando que essa informação chegará "**online**" para o sistema.
 
-#### WebHook consulta-realizada-cpf
+#### 3.3.1. WebHook consulta-realizada-cpf
 Este Webhook será chamado toda vez que alguma instituição fizer alguma consulta a um determinado CPF.
 Ao ser chamado irá preencher o banco **Redis** com a informação da última consulta e também preencherá um banco **MongoDb** (para garantir a informação).
 ![](img/Cenario3WebHookConsultaCpf.png)
 
-#### WebHook movimentacao-financeira-realizada
+#### 3.3.2. WebHook movimentacao-financeira-realizada
 Este WebHook será chamado toda vez que for realizada uma movimentação financeira para um determinado CPF, 
 Ao ser chamado irá preencher o banco **Redis** com a informação da movimentação, preencherá também um banco **MongoDb** e fará uma validação, se for uma movimentação de Credito utilizando Cartão de Crédito irá preencher uma outra coleção do **MongoDb** e uma outra sessão do **Redis** para guardar esta informação.
 ![](img/Cenario3WebHookMovimentacaoFinanceira.png)
 
-#### Evento Realiza Sumário Financeiro
+#### 3.3.3. Evento Realiza Sumário Financeiro
 Conforme citado no cenário 1, sempre que fizer uma consulta na Base A será disparado um evento para fazer o preenchimento dos dados no banco **Redis** a partir das coleções do banco **MongoDb**. Este evento pode ser trabalhado utilizando mensageria como, por exemplo, *RabbitMq*, *ActiveMq*, *Kafka*, ou até mesmo utilizando um outro WebHook.
 ![](img/Cenario3EventoSumarioFinanceiro.png)
 
-#### Micro-serviço busca-sumario-financeiro
+#### 3.3.4. Micro-serviço busca-sumario-financeiro
 Por fim terá o micro-serviço para retornar os dados sumarizados presente no **Redis**, mas caso não esteja presente irá realizar uma consulta nos dados do **MongoDb** conforme diagrama abaixo.
 ![](img/Cenario3.png)
 
@@ -173,7 +185,7 @@ Exemplo de retorno
 }
 ```
 
-## Considerações
+## 4. Considerações
 
 Estou considerando que em um processo de usabilidade do sistema, a jornada do usuário seria executar os processos na ordem das bases, ou seja, passaria pelo Cenário 1, depois Cenário 2 e por fim ao Cenário 3.
 
